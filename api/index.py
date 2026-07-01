@@ -11,11 +11,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # ==========================
 EMAIL = "24ds2000033@ds.study.iitm.ac.in"
 
-ALLOWED_ORIGIN = "https://dash-vaih3o.example.com"
-
 app = FastAPI()
 
-# Strict CORS
+ALLOWED_ORIGIN = "https://dash-vaih3o.example.com"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[ALLOWED_ORIGIN],
