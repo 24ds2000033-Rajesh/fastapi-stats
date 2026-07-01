@@ -1,9 +1,7 @@
 import time
 import uuid
-
-from fastapi import FastAPI, Query, Response
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import FastAPI, Query, Request
+from fastapi.responses import JSONResponse, Response
 
 EMAIL = "24ds2000033@ds.study.iitm.ac.in"
 ALLOWED_ORIGIN = "https://dash-vaih3o.example.com"
@@ -11,32 +9,65 @@ ALLOWED_ORIGIN = "https://dash-vaih3o.example.com"
 app = FastAPI()
 
 
-class RequestMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        start = time.perf_counter()
+@app.middleware("http")
+async def request_middleware(request: Request, call_next):
+    start = time.perf_counter()
 
-        # Reject preflight from any non-allowed origin
-        if request.method == "OPTIONS":
-            origin = request.headers.get("origin")
-            if origin != ALLOWED_ORIGIN:
-                response = Response(status_code=403)
-            else:
-                response = await call_next(request)
+    origin = request.headers.get("origin")
+
+    # Handle CORS preflight ourselves
+    if request.method == "OPTIONS":
+        if origin == ALLOWED_ORIGIN:
+            response = Response(status_code=200)
+            response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN
+            response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Vary"] = "Origin"
         else:
-            response = await call_next(request)
+            # Reject other origins with NO ACAO header
+            response = Response(status_code=403)
+    else:
+        response = await call_next(request)
 
-        response.headers["X-Request-ID"] = str(uuid.uuid4())
-        response.headers["X-Process-Time"] = f"{time.perf_counter()-start:.6f}"
+        # Only add ACAO for the allowed origin
+        if origin == ALLOWED_ORIGIN:
+            response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN
+            response.headers["Vary"] = "Origin"
 
-        return response
+    response.headers["X-Request-ID"] = str(uuid.uuid4())
+    response.headers["X-Process-Time"] = f"{time.perf_counter() - start:.6f}"
+
+    return response
 
 
-app.add_middleware(RequestMiddleware)
+@app.get("/stats")
+async def stats(values: str = Query(...)):
+    try:
+        nums = [int(x.strip()) for x in values.split(",") if x.strip()]
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "values must contain comma-separated integers"},
+        )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[ALLOWED_ORIGIN],
-    allow_methods=["GET", "OPTIONS"],
-    allow_headers=["*"],
-    allow_credentials=False,
-)
+    if not nums:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "values cannot be empty"},
+        )
+
+    total = sum(nums)
+
+    return {
+        "email": EMAIL,
+        "count": len(nums),
+        "sum": total,
+        "min": min(nums),
+        "max": max(nums),
+        "mean": total / len(nums),
+    }
+
+
+@app.get("/")
+async def root():
+    return {"status": "ok"}
