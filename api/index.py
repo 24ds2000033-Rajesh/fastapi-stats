@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # ==========================
 # CHANGE THIS
 # ==========================
-EMAIL = "YOUR_EMAIL@example.com"
+EMAIL = "24ds2000033@ds.study.iitm.ac.in"
 
 ALLOWED_ORIGIN = "https://dash-vaih3o.example.com"
 
